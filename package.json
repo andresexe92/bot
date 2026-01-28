@@ -1,16 +1,30 @@
 {
-  "name": "base-bailey-json",
+  "name": "bot-manager-multitenant",
   "version": "1.0.0",
-  "description": "",
-  "main": "dist/app.js",
+  "description": "Plataforma Multi-Tenant de Bots WhatsApp con @builderbot/bot",
+  "main": "dist/manager/index.js",
   "type": "module",
   "scripts": {
-    "start": "node ./dist/app.js",
+    "start": "node ./dist/manager/index.js",
+    "manager": "node ./dist/manager/index.js",
+    "worker": "node ./dist/worker/bot.js",
+    "dev": "tsx watch ./src/manager/index.ts",
+    "dev:manager": "tsx watch ./src/manager/index.ts",
+    "dev:worker": "tsx ./src/worker/bot.ts",
+    "build": "npm run build:manager && npm run build:worker",
+    "build:manager": "npx rollup -c rollup.manager.config.js",
+    "build:worker": "npx rollup -c rollup.worker.config.js",
     "lint": "eslint . --no-ignore",
-    "dev": "npm run lint && nodemon ./src/app.ts",
-    "build": "npx rollup -c"
+    "clean": "rm -rf dist",
+    "start:old": "node ./dist/app.js",
+    "dev:old": "npm run lint && nodemon ./src/app.ts"
   },
-  "keywords": [],
+  "keywords": [
+    "whatsapp",
+    "bot",
+    "multi-tenant",
+    "builderbot"
+  ],
   "dependencies": {
     "@builderbot/bot": "1.2.2",
     "@builderbot/provider-baileys": "1.2.2",
@@ -29,6 +43,9 @@
     "rollup-plugin-typescript2": "^0.36.0",
     "tsx": "^4.7.1",
     "typescript": "^5.4.3"
+  },
+  "engines": {
+    "node": ">=18"
   },
   "author": "",
   "license": "ISC"

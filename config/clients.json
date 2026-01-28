@@ -1,0 +1,13 @@
+{
+  "version": "1.0.0",
+  "clients": [
+    {
+      "nit": "1028008009",
+      "puerto": 3001,
+      "nombre": "Cliente Demo",
+      "webhookUrl": "https://apipuntoventav1.nubep7.com",
+      "activo": true,
+      "createdAt": "2025-01-28T00:00:00.000Z"
+    }
+  ]
+}

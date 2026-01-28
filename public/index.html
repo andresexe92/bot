@@ -1,0 +1,607 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Bot Manager - Dashboard</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+      background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+      min-height: 100vh;
+      color: #fff;
+    }
+
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 20px;
+    }
+
+    header {
+      text-align: center;
+      padding: 30px 0;
+      border-bottom: 1px solid rgba(255,255,255,0.1);
+      margin-bottom: 30px;
+    }
+
+    header h1 {
+      font-size: 2.5rem;
+      margin-bottom: 10px;
+      background: linear-gradient(90deg, #00d9ff, #00ff88);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 20px;
+      margin-bottom: 30px;
+    }
+
+    .stat-card {
+      background: rgba(255,255,255,0.05);
+      border-radius: 15px;
+      padding: 25px;
+      text-align: center;
+      border: 1px solid rgba(255,255,255,0.1);
+    }
+
+    .stat-card h3 {
+      font-size: 2.5rem;
+      margin-bottom: 5px;
+    }
+
+    .stat-card p {
+      color: rgba(255,255,255,0.6);
+      font-size: 0.9rem;
+    }
+
+    .stat-card.online h3 { color: #00ff88; }
+    .stat-card.offline h3 { color: #ff6b6b; }
+    .stat-card.total h3 { color: #00d9ff; }
+
+    .section-title {
+      font-size: 1.5rem;
+      margin-bottom: 20px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    /* Formulario de crear cliente */
+    .create-form {
+      background: rgba(255,255,255,0.05);
+      border-radius: 15px;
+      padding: 25px;
+      margin-bottom: 30px;
+      border: 1px solid rgba(255,255,255,0.1);
+    }
+
+    .form-row {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 15px;
+      margin-bottom: 15px;
+    }
+
+    .form-group {
+      display: flex;
+      flex-direction: column;
+    }
+
+    .form-group label {
+      font-size: 0.85rem;
+      color: rgba(255,255,255,0.6);
+      margin-bottom: 5px;
+    }
+
+    .form-group input {
+      padding: 12px 15px;
+      border-radius: 8px;
+      border: 1px solid rgba(255,255,255,0.2);
+      background: rgba(255,255,255,0.1);
+      color: #fff;
+      font-size: 1rem;
+    }
+
+    .form-group input:focus {
+      outline: none;
+      border-color: #00d9ff;
+    }
+
+    .form-group input::placeholder {
+      color: rgba(255,255,255,0.4);
+    }
+
+    .btn {
+      padding: 12px 25px;
+      border-radius: 8px;
+      border: none;
+      cursor: pointer;
+      font-size: 1rem;
+      font-weight: 600;
+      transition: all 0.3s ease;
+    }
+
+    .btn-primary {
+      background: linear-gradient(90deg, #00d9ff, #00ff88);
+      color: #1a1a2e;
+    }
+
+    .btn-primary:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 5px 20px rgba(0,217,255,0.3);
+    }
+
+    .btn-danger {
+      background: #ff6b6b;
+      color: #fff;
+    }
+
+    .btn-warning {
+      background: #ffd93d;
+      color: #1a1a2e;
+    }
+
+    .btn-sm {
+      padding: 8px 15px;
+      font-size: 0.85rem;
+    }
+
+    /* Tabla de clientes */
+    .clients-table {
+      background: rgba(255,255,255,0.05);
+      border-radius: 15px;
+      overflow: hidden;
+      border: 1px solid rgba(255,255,255,0.1);
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+
+    th, td {
+      padding: 15px 20px;
+      text-align: left;
+    }
+
+    th {
+      background: rgba(255,255,255,0.05);
+      color: rgba(255,255,255,0.6);
+      font-weight: 600;
+      font-size: 0.85rem;
+      text-transform: uppercase;
+    }
+
+    tr {
+      border-bottom: 1px solid rgba(255,255,255,0.05);
+    }
+
+    tr:hover {
+      background: rgba(255,255,255,0.03);
+    }
+
+    .status-badge {
+      display: inline-block;
+      padding: 5px 12px;
+      border-radius: 20px;
+      font-size: 0.8rem;
+      font-weight: 600;
+    }
+
+    .status-ONLINE { background: rgba(0,255,136,0.2); color: #00ff88; }
+    .status-OFFLINE { background: rgba(255,107,107,0.2); color: #ff6b6b; }
+    .status-STARTING { background: rgba(0,217,255,0.2); color: #00d9ff; }
+    .status-AUTHENTICATING { background: rgba(255,217,61,0.2); color: #ffd93d; }
+    .status-ERROR { background: rgba(255,107,107,0.2); color: #ff6b6b; }
+
+    .actions {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    /* Modal QR */
+    .modal {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0,0,0,0.8);
+      justify-content: center;
+      align-items: center;
+      z-index: 1000;
+    }
+
+    .modal.active {
+      display: flex;
+    }
+
+    .modal-content {
+      background: #1a1a2e;
+      border-radius: 15px;
+      padding: 30px;
+      text-align: center;
+      max-width: 400px;
+      width: 90%;
+      border: 1px solid rgba(255,255,255,0.1);
+    }
+
+    .modal-content h2 {
+      margin-bottom: 20px;
+    }
+
+    .modal-content img {
+      max-width: 100%;
+      border-radius: 10px;
+      background: #fff;
+      padding: 10px;
+    }
+
+    .modal-content .close-btn {
+      margin-top: 20px;
+    }
+
+    .qr-placeholder {
+      background: rgba(255,255,255,0.1);
+      padding: 40px;
+      border-radius: 10px;
+      color: rgba(255,255,255,0.5);
+    }
+
+    /* Loading */
+    .loading {
+      text-align: center;
+      padding: 40px;
+      color: rgba(255,255,255,0.6);
+    }
+
+    .spinner {
+      display: inline-block;
+      width: 30px;
+      height: 30px;
+      border: 3px solid rgba(255,255,255,0.1);
+      border-top-color: #00d9ff;
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    /* Toast notifications */
+    .toast-container {
+      position: fixed;
+      bottom: 20px;
+      right: 20px;
+      z-index: 1001;
+    }
+
+    .toast {
+      background: #333;
+      padding: 15px 20px;
+      border-radius: 8px;
+      margin-top: 10px;
+      animation: slideIn 0.3s ease;
+    }
+
+    .toast.success { border-left: 4px solid #00ff88; }
+    .toast.error { border-left: 4px solid #ff6b6b; }
+
+    @keyframes slideIn {
+      from { transform: translateX(100%); opacity: 0; }
+      to { transform: translateX(0); opacity: 1; }
+    }
+
+    /* Responsive */
+    @media (max-width: 768px) {
+      header h1 { font-size: 1.8rem; }
+      .form-row { grid-template-columns: 1fr; }
+      th, td { padding: 10px; font-size: 0.9rem; }
+      .actions { flex-direction: column; }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>Bot Manager</h1>
+      <p>Plataforma Multi-Tenant de Bots WhatsApp</p>
+    </header>
+
+    <!-- Stats -->
+    <div class="stats" id="stats">
+      <div class="stat-card total">
+        <h3 id="totalClients">-</h3>
+        <p>Total Clientes</p>
+      </div>
+      <div class="stat-card online">
+        <h3 id="onlineClients">-</h3>
+        <p>Online</p>
+      </div>
+      <div class="stat-card offline">
+        <h3 id="offlineClients">-</h3>
+        <p>Offline</p>
+      </div>
+      <div class="stat-card">
+        <h3 id="uptime">-</h3>
+        <p>Uptime (min)</p>
+      </div>
+    </div>
+
+    <!-- Crear nuevo cliente -->
+    <div class="create-form">
+      <h2 class="section-title">Crear Nuevo Cliente</h2>
+      <form id="createForm">
+        <div class="form-row">
+          <div class="form-group">
+            <label for="nit">NIT (ID Unico)</label>
+            <input type="text" id="nit" placeholder="1028008009" required>
+          </div>
+          <div class="form-group">
+            <label for="puerto">Puerto</label>
+            <input type="number" id="puerto" placeholder="3001" required min="1024" max="65535">
+          </div>
+          <div class="form-group">
+            <label for="nombre">Nombre</label>
+            <input type="text" id="nombre" placeholder="Mi Empresa" required>
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label for="webhookUrl">URL Webhook (opcional)</label>
+            <input type="url" id="webhookUrl" placeholder="https://api.miempresa.com">
+          </div>
+        </div>
+        <button type="submit" class="btn btn-primary">Crear y Arrancar Bot</button>
+      </form>
+    </div>
+
+    <!-- Lista de clientes -->
+    <h2 class="section-title">Clientes Registrados</h2>
+    <div class="clients-table">
+      <table>
+        <thead>
+          <tr>
+            <th>NIT</th>
+            <th>Nombre</th>
+            <th>Puerto</th>
+            <th>Estado</th>
+            <th>Acciones</th>
+          </tr>
+        </thead>
+        <tbody id="clientsTable">
+          <tr>
+            <td colspan="5" class="loading">
+              <div class="spinner"></div>
+              <p>Cargando...</p>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Modal QR -->
+  <div class="modal" id="qrModal">
+    <div class="modal-content">
+      <h2>Codigo QR - <span id="qrClientName"></span></h2>
+      <div id="qrContainer">
+        <div class="qr-placeholder">Cargando QR...</div>
+      </div>
+      <button class="btn btn-primary close-btn" onclick="closeQrModal()">Cerrar</button>
+    </div>
+  </div>
+
+  <!-- Toast container -->
+  <div class="toast-container" id="toastContainer"></div>
+
+  <script>
+    const API_BASE = '/api';
+    let refreshInterval;
+
+    // ============================================
+    // API CALLS
+    // ============================================
+
+    async function fetchApi(endpoint, options = {}) {
+      try {
+        const response = await fetch(`${API_BASE}${endpoint}`, {
+          headers: { 'Content-Type': 'application/json' },
+          ...options
+        });
+        const data = await response.json();
+        return data;
+      } catch (error) {
+        console.error('API Error:', error);
+        showToast('Error de conexion', 'error');
+        return { success: false, error: error.message };
+      }
+    }
+
+    // ============================================
+    // RENDER FUNCTIONS
+    // ============================================
+
+    async function loadStats() {
+      const result = await fetchApi('/info');
+      if (result.success) {
+        const data = result.data;
+        document.getElementById('totalClients').textContent = data.totalClients;
+        document.getElementById('onlineClients').textContent = data.onlineClients;
+        document.getElementById('offlineClients').textContent = data.offlineClients;
+        document.getElementById('uptime').textContent = Math.floor(data.uptime / 60);
+      }
+    }
+
+    async function loadClients() {
+      const result = await fetchApi('/clients');
+      const tbody = document.getElementById('clientsTable');
+
+      if (!result.success || !result.data || result.data.length === 0) {
+        tbody.innerHTML = `
+          <tr>
+            <td colspan="5" style="text-align: center; padding: 40px; color: rgba(255,255,255,0.5);">
+              No hay clientes registrados. Crea uno arriba.
+            </td>
+          </tr>
+        `;
+        return;
+      }
+
+      tbody.innerHTML = result.data.map(client => `
+        <tr>
+          <td><strong>${client.nit}</strong></td>
+          <td>${client.nombre}</td>
+          <td>${client.puerto}</td>
+          <td><span class="status-badge status-${client.status}">${client.status}</span></td>
+          <td>
+            <div class="actions">
+              ${client.status === 'OFFLINE' || client.status === 'ERROR' ? `
+                <button class="btn btn-primary btn-sm" onclick="startBot('${client.nit}')">Iniciar</button>
+              ` : `
+                <button class="btn btn-danger btn-sm" onclick="stopBot('${client.nit}')">Detener</button>
+              `}
+              <button class="btn btn-warning btn-sm" onclick="showQr('${client.nit}', '${client.nombre}')">Ver QR</button>
+              <button class="btn btn-sm" style="background:#666" onclick="restartBot('${client.nit}')">Reiniciar</button>
+              <button class="btn btn-danger btn-sm" onclick="deleteClient('${client.nit}')">Eliminar</button>
+            </div>
+          </td>
+        </tr>
+      `).join('');
+    }
+
+    // ============================================
+    // ACTIONS
+    // ============================================
+
+    async function startBot(nit) {
+      showToast(`Iniciando bot ${nit}...`, 'success');
+      await fetchApi(`/clients/${nit}/start`, { method: 'POST' });
+      await refresh();
+    }
+
+    async function stopBot(nit) {
+      showToast(`Deteniendo bot ${nit}...`, 'success');
+      await fetchApi(`/clients/${nit}/stop`, { method: 'POST' });
+      await refresh();
+    }
+
+    async function restartBot(nit) {
+      showToast(`Reiniciando bot ${nit}...`, 'success');
+      await fetchApi(`/clients/${nit}/restart`, { method: 'POST' });
+      await refresh();
+    }
+
+    async function deleteClient(nit) {
+      if (!confirm(`¿Eliminar cliente ${nit}?`)) return;
+      const result = await fetchApi(`/clients/${nit}`, { method: 'DELETE' });
+      if (result.success) {
+        showToast('Cliente eliminado', 'success');
+      } else {
+        showToast(result.error || 'Error eliminando', 'error');
+      }
+      await refresh();
+    }
+
+    function showQr(nit, nombre) {
+      document.getElementById('qrClientName').textContent = nombre;
+      const container = document.getElementById('qrContainer');
+      const timestamp = Date.now();
+      container.innerHTML = `<img src="/qrs/${nit}?t=${timestamp}" alt="QR ${nit}" onerror="this.parentElement.innerHTML='<div class=qr-placeholder>QR no disponible. El bot puede estar autenticado o no iniciado.</div>'">`;
+      document.getElementById('qrModal').classList.add('active');
+    }
+
+    function closeQrModal() {
+      document.getElementById('qrModal').classList.remove('active');
+    }
+
+    // ============================================
+    // CREATE FORM
+    // ============================================
+
+    document.getElementById('createForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+
+      const data = {
+        nit: document.getElementById('nit').value,
+        puerto: parseInt(document.getElementById('puerto').value),
+        nombre: document.getElementById('nombre').value,
+        webhookUrl: document.getElementById('webhookUrl').value || undefined,
+        autoStart: true
+      };
+
+      const result = await fetchApi('/clients', {
+        method: 'POST',
+        body: JSON.stringify(data)
+      });
+
+      if (result.success) {
+        showToast(`Cliente ${data.nombre} creado!`, 'success');
+        document.getElementById('createForm').reset();
+
+        // Esperar un momento y mostrar QR
+        setTimeout(() => {
+          showQr(data.nit, data.nombre);
+        }, 3000);
+      } else {
+        showToast(result.error || 'Error creando cliente', 'error');
+      }
+
+      await refresh();
+    });
+
+    // ============================================
+    // TOAST NOTIFICATIONS
+    // ============================================
+
+    function showToast(message, type = 'success') {
+      const container = document.getElementById('toastContainer');
+      const toast = document.createElement('div');
+      toast.className = `toast ${type}`;
+      toast.textContent = message;
+      container.appendChild(toast);
+
+      setTimeout(() => {
+        toast.remove();
+      }, 3000);
+    }
+
+    // ============================================
+    // REFRESH
+    // ============================================
+
+    async function refresh() {
+      await Promise.all([loadStats(), loadClients()]);
+    }
+
+    // Initial load
+    refresh();
+
+    // Auto-refresh every 5 seconds
+    refreshInterval = setInterval(refresh, 5000);
+
+    // Close modal on escape
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') closeQrModal();
+    });
+
+    // Close modal on background click
+    document.getElementById('qrModal').addEventListener('click', (e) => {
+      if (e.target.id === 'qrModal') closeQrModal();
+    });
+  </script>
+</body>
+</html>

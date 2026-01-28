@@ -1,83 +1,160 @@
-# 🤖 API de Bot WhatsApp (BuilderBot Wrapper)
+# Bot Manager Multi-Tenant
 
-Este servicio levanta un bot de WhatsApp capaz de enviar mensajes proactivos y realizar flujos de preguntas/respuestas dinámicos controlados vía HTTP.
+Plataforma escalable para gestionar multiples bots de WhatsApp desde un sistema centralizado. Basado en [@builderbot/bot](https://github.com/builderbot-js/builderbot).
 
-## 🚀 Características
-- **Cola de Mensajes**: Implementa `queue-promise` para evitar baneos por envío masivo (rate limits).
-- **Flujos Dinámicos**: No requiere re-desplegar para cambiar preguntas; la lógica se envía en el payload del request.
-- **Provider**: Baileys (WhatsApp Web API gratuita).
+## Caracteristicas
 
-## 🛠️ Instalación y Uso
+- **Multi-Tenant**: Un Manager controla N instancias de bots
+- **API REST**: Crear, iniciar, detener bots via HTTP
+- **Dashboard Web**: Interfaz visual de administracion
+- **QRs Centralizados**: Almacenamiento organizado en `storage/{NIT}/`
+- **Auto-Restart**: Recuperacion automatica de bots caidos
+- **Flujos Dinamicos/Stateless**: Logica controlada desde backend PHP
 
-1. **Instalar dependencias**:
-   ```bash
-   npm install
-   ```
+## Inicio Rapido
 
-2. **Configurar Puerto**:
-   Crea/Edita `config.json` en la raíz (opcional, por defecto 3999).
+```bash
+# Instalar dependencias
+npm install
 
-3. **Ejecutar**:
-   ```bash
-   npm run dev
-   ```
+# Compilar
+npm run build
 
----
-
-## 📡 Endpoints API
-
-### 1. Enviar Mensaje Simple / Archivo
-**POST** `/v1/messages`
-
-Envía un mensaje de texto o multimedia a un usuario.
-
-**Body:**
-```json
-{
-    "number": "573001234567",
-    "message": "Hola, aquí tienes tu factura",
-    "urlMedia": "https://mi-dominio.com/archivo.pdf" 
-}
+# Iniciar Manager (puerto 4000)
+npm start
 ```
-> `urlMedia` es opcional (null para solo texto).
 
-### 2. Enviar Pregunta Interactiva
-**POST** `/v1/question`
+Abrir http://localhost:4000 para acceder al Dashboard.
 
-Inicia un flujo donde el bot hace una pregunta y, según la respuesta numérica del usuario ('1', '2'...), ejecuta un webhook externo.
+## Arquitectura
 
-**Body:**
-```json
-{
+```
+Manager (Puerto 4000)
+├── API REST (/api/*)
+├── Dashboard HTML
+└── Orquestador de Workers
+    │
+    ├── Worker Bot 1 (Puerto 3001) ─── storage/NIT_1/
+    ├── Worker Bot 2 (Puerto 3002) ─── storage/NIT_2/
+    └── Worker Bot N (Puerto 300N) ─── storage/NIT_N/
+```
+
+## API Endpoints
+
+### Gestion de Clientes
+
+| Metodo | Endpoint | Descripcion |
+|--------|----------|-------------|
+| GET | `/api/clients` | Listar todos los clientes |
+| POST | `/api/clients` | Crear nuevo cliente |
+| GET | `/api/clients/:nit` | Estado de un cliente |
+| PUT | `/api/clients/:nit` | Actualizar cliente |
+| DELETE | `/api/clients/:nit` | Eliminar cliente |
+
+### Control de Bots
+
+| Metodo | Endpoint | Descripcion |
+|--------|----------|-------------|
+| POST | `/api/clients/:nit/start` | Iniciar bot |
+| POST | `/api/clients/:nit/stop` | Detener bot |
+| POST | `/api/clients/:nit/restart` | Reiniciar bot |
+| GET | `/api/clients/:nit/qr` | Obtener imagen QR |
+| GET | `/qrs/:nit` | Alias corto para QR |
+
+### Endpoints de los Workers
+
+Cada bot expone en su puerto:
+
+| Metodo | Endpoint | Descripcion |
+|--------|----------|-------------|
+| POST | `/v1/messages` | Enviar mensaje simple |
+| POST | `/v1/question` | Enviar pregunta con opciones |
+| GET | `/health` | Health check |
+
+## Crear un Cliente
+
+```bash
+curl -X POST http://localhost:4000/api/clients \
+  -H "Content-Type: application/json" \
+  -d '{
+    "nit": "1234567890",
+    "puerto": 3005,
+    "nombre": "Mi Empresa",
+    "autoStart": true
+  }'
+```
+
+## Enviar Mensaje
+
+```bash
+curl -X POST http://localhost:3005/v1/messages \
+  -H "Content-Type: application/json" \
+  -d '{
     "number": "573001234567",
-    "message": [
-        "👋 Hola, confirma tu asistencia:",
-        "1️⃣ Si, asistiré",
-        "2️⃣ No, no puedo"
-    ],
+    "message": "Hola desde el bot!"
+  }'
+```
+
+## Enviar Pregunta Interactiva
+
+```bash
+curl -X POST http://localhost:3005/v1/question \
+  -H "Content-Type: application/json" \
+  -d '{
+    "number": "573001234567",
+    "message": ["Como desea pagar?", "1. Efectivo", "2. Tarjeta"],
     "answers": [
-        {
-            "option": 1,
-            "action": "https://tu-api.com/confirmar-asistencia",
-            "message": "¡Genial! Te esperamos."
-        },
-        {
-            "option": 2,
-            "action": "https://tu-api.com/cancelar-cita",
-            "message": "Entendido, gracias por avisar."
-        }
+      {"option": 1, "action": "https://api.com/webhook", "message": "Pago en efectivo"},
+      {"option": 2, "action": "https://api.com/webhook", "message": "Pago con tarjeta"}
     ]
-}
+  }'
 ```
 
-**Comportamiento:**
-1. El bot envía las líneas de `message`.
-2. Espera una respuesta numérica del usuario.
-3. Si el usuario responde `1`, el bot hace un POST a `https://tu-api.com/confirmar-asistencia` enviando `{ "respuesta": 1 }`.
-4. El bot responde al usuario con "¡Genial! Te esperamos.".
+## Estructura del Proyecto
 
----
+```
+bot/
+├── config/
+│   └── clients.json         # Configuracion de clientes
+├── dist/                    # Codigo compilado
+├── docs/
+│   └── MANUAL_PROGRAMADOR.md
+├── public/
+│   └── index.html           # Dashboard
+├── src/
+│   ├── manager/             # Orquestador
+│   │   ├── index.ts
+│   │   ├── BotManager.ts
+│   │   ├── ApiServer.ts
+│   │   ├── ClientStore.ts
+│   │   └── types.ts
+│   └── worker/              # Bot individual
+│       └── bot.ts
+├── storage/                 # QRs y sesiones por NIT
+├── package.json
+└── tsconfig.json
+```
 
-## 🏗️ Estructura del Proyecto
-- `src/app.ts`: Servidor Express y configuración del bot.
-- `src/flowQuestion.ts`: Lógica del flujo dinámico. Parsea el payload enviado en el evento `question` para configurar las respuestas en tiempo real.
+## Variables de Entorno
+
+| Variable | Default | Descripcion |
+|----------|---------|-------------|
+| `MANAGER_PORT` | 4000 | Puerto del Manager |
+| `STORAGE_PATH` | ./storage | Ruta de almacenamiento |
+| `AUTO_START` | true | Auto-iniciar bots |
+
+## Scripts
+
+```bash
+npm start        # Produccion
+npm run dev      # Desarrollo con hot-reload
+npm run build    # Compilar TypeScript
+```
+
+## Documentacion
+
+Ver [docs/MANUAL_PROGRAMADOR.md](docs/MANUAL_PROGRAMADOR.md) para documentacion tecnica completa.
+
+## Licencia
+
+ISC

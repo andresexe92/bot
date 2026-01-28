@@ -1,3 +1,4 @@
+# IDE
 /nbproject/
 /.idea/*
 *.tmlanguage.cache
@@ -5,7 +6,46 @@
 *.stTheme.cache
 *.sublime-workspace
 *.sublime-project
+.vs/
+.vscode/
+
+# Node
 node_modules/
+
+# Build
+dist/
 bin/
 obj/
-.vs/
+*.tsbuildinfo
+
+# Storage (sesiones y QRs - datos sensibles)
+storage/
+
+# Sesiones de Baileys (legacy)
+*_sessions/
+*.qr.png
+
+# Logs
+*.log
+baileys.log
+core.class.log
+queue.class.log
+
+# Bots legacy (carpetas manuales)
+bot-1/
+bot-2/
+BotsClientes/
+
+# Backups
+*.rar
+*.zip
+*.tar.gz
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# OS
+.DS_Store
+Thumbs.db

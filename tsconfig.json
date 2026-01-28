@@ -2,33 +2,37 @@
   "compilerOptions": {
     "target": "ES2022",
     "module": "ES2022",
+    "moduleResolution": "node",
     "declaration": false,
     "declarationMap": false,
-    "moduleResolution": "node",
     "removeComments": true,
     "emitDecoratorMetadata": true,
     "experimentalDecorators": true,
     "allowSyntheticDefaultImports": true,
+    "esModuleInterop": true,
     "sourceMap": false,
-    "outDir": "bot-1",
+    "outDir": "dist",
     "baseUrl": "./",
-    "rootDir": "./",
+    "rootDir": "./src",
     "incremental": true,
     "skipLibCheck": true,
+    "strict": false,
+    "noImplicitAny": false,
     "paths": {
       "~/*": ["./src/*"]
-    }
+    },
+    "resolveJsonModule": true
   },
   "include": [
-    "**/*.js",
-    "**/*.ts"
+    "src/**/*.ts"
   ],
   "exclude": [
     "node_modules",
+    "dist",
     "bot-1",
+    "bot-2",
+    "BotsClientes",
     "**/*.test.ts",
-    "**/*.spec.ts",
-    "**e2e**",
-    "**mock**"
+    "**/*.spec.ts"
   ]
 }
