@@ -8,27 +8,32 @@
     "start": "node ./dist/manager/index.js",
     "manager": "node ./dist/manager/index.js",
     "worker": "node ./dist/worker/bot.js",
+    "worker:meta": "node ./dist/worker/bot-meta.js",
     "dev": "tsx watch ./src/manager/index.ts",
     "dev:manager": "tsx watch ./src/manager/index.ts",
     "dev:worker": "tsx ./src/worker/bot.ts",
-    "build": "npm run build:manager && npm run build:worker",
+    "dev:worker:meta": "tsx ./src/worker/bot-meta.ts",
+    "build": "npm run build:manager && npm run build:worker && npm run build:worker:meta",
     "build:manager": "npx rollup -c rollup.manager.config.js",
     "build:worker": "npx rollup -c rollup.worker.config.js",
+    "build:worker:meta": "npx rollup -c rollup.worker-meta.config.js",
     "lint": "eslint . --no-ignore",
-    "clean": "rm -rf dist",
-    "start:old": "node ./dist/app.js",
-    "dev:old": "npm run lint && nodemon ./src/app.ts"
+    "clean": "rm -rf dist"
   },
   "keywords": [
     "whatsapp",
     "bot",
     "multi-tenant",
-    "builderbot"
+    "builderbot",
+    "meta",
+    "business-api"
   ],
   "dependencies": {
     "@builderbot/bot": "1.2.2",
     "@builderbot/provider-baileys": "1.2.2",
+    "@builderbot/provider-meta": "^1.3.15",
     "@types/express": "^5.0.0",
+    "dotenv": "^16.4.5",
     "express": "^4.21.2",
     "queue-promise": "^2.2.1"
   },

@@ -7,11 +7,22 @@
 // CONFIGURACIÓN DE CLIENTES
 // ============================================
 
+export type ProviderType = 'baileys' | 'meta';
+
+export interface MetaConfig {
+  jwtToken: string;      // Access Token de Meta
+  numberId: string;      // Phone Number ID
+  verifyToken: string;   // Verify Token para webhook
+  version?: string;      // Version de API (default: v21.0)
+}
+
 export interface ClientConfig {
   nit: string;           // ID único del cliente (NIT empresarial)
   puerto: number;        // Puerto donde corre el bot
   nombre: string;        // Nombre visible del cliente/empresa
+  provider: ProviderType; // Tipo de provider: 'baileys' | 'meta'
   webhookUrl?: string;   // URL base del backend PHP (opcional)
+  metaConfig?: MetaConfig; // Configuración de Meta (requerida si provider='meta')
   activo: boolean;       // Si el bot debe estar activo
   createdAt?: string;    // Fecha de creación
   updatedAt?: string;    // Última actualización
@@ -129,7 +140,8 @@ export interface ManagerConfig {
   managerPort: number;           // Puerto del API del Manager
   storageBasePath: string;       // Ruta base para storage/
   clientsConfigPath: string;     // Ruta al clients.json
-  workerScriptPath: string;      // Ruta al script del worker
+  workerBaileysPath: string;     // Ruta al script del worker Baileys
+  workerMetaPath: string;        // Ruta al script del worker Meta
   autoStartOnBoot: boolean;      // Iniciar bots al arrancar el manager
   healthCheckInterval: number;   // Intervalo de health check en ms
   maxRestartAttempts: number;    // Máximo intentos de reinicio por bot
@@ -139,7 +151,8 @@ export const DEFAULT_MANAGER_CONFIG: ManagerConfig = {
   managerPort: 4000,
   storageBasePath: './storage',
   clientsConfigPath: './config/clients.json',
-  workerScriptPath: './dist/worker/bot.js',
+  workerBaileysPath: './dist/worker/bot.js',
+  workerMetaPath: './dist/worker/bot-meta.js',
   autoStartOnBoot: true,
   healthCheckInterval: 30000,
   maxRestartAttempts: 3

@@ -37,7 +37,8 @@ export class BotManager {
       managerPort: config.managerPort ?? 4000,
       storageBasePath: config.storageBasePath ?? './storage',
       clientsConfigPath: config.clientsConfigPath ?? './config/clients.json',
-      workerScriptPath: config.workerScriptPath ?? './dist/worker/bot.js',
+      workerBaileysPath: config.workerBaileysPath ?? './dist/worker/bot.js',
+      workerMetaPath: config.workerMetaPath ?? './dist/worker/bot-meta.js',
       autoStartOnBoot: config.autoStartOnBoot ?? true,
       healthCheckInterval: config.healthCheckInterval ?? 30000,
       maxRestartAttempts: config.maxRestartAttempts ?? 3
@@ -172,15 +173,21 @@ export class BotManager {
    * Spawna un proceso worker para un bot
    */
   private async spawnWorker(client: ClientConfig, instance: BotInstance): Promise<void> {
-    const workerPath = resolve(this.config.workerScriptPath);
+    // Seleccionar worker según el tipo de provider
+    const providerType = client.provider || 'baileys';
+    const workerPath = providerType === 'meta'
+      ? resolve(this.config.workerMetaPath)
+      : resolve(this.config.workerBaileysPath);
+
+    console.log(`[BotManager] Provider: ${providerType}, Worker: ${workerPath}`);
 
     if (!existsSync(workerPath)) {
       throw new Error(`Worker script no encontrado: ${workerPath}`);
     }
 
-    // Variables de entorno para el worker
-    const workerEnv = {
-      ...process.env,
+    // Variables de entorno base para el worker
+    const workerEnv: Record<string, string> = {
+      ...process.env as Record<string, string>,
       BOT_NIT: client.nit,
       BOT_PUERTO: String(client.puerto),
       BOT_NOMBRE: client.nombre,
@@ -189,6 +196,14 @@ export class BotManager {
       BOT_SESSION_PATH: this.getSessionPath(client.nit),
       BOT_QR_PATH: this.getQrPath(client.nit)
     };
+
+    // Agregar variables de Meta si el provider es meta
+    if (providerType === 'meta' && client.metaConfig) {
+      workerEnv.META_JWT_TOKEN = client.metaConfig.jwtToken;
+      workerEnv.META_NUMBER_ID = client.metaConfig.numberId;
+      workerEnv.META_VERIFY_TOKEN = client.metaConfig.verifyToken;
+      workerEnv.META_VERSION = client.metaConfig.version || 'v21.0';
+    }
 
     const child = fork(workerPath, [], {
       env: workerEnv,

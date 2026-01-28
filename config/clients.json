@@ -2,20 +2,28 @@
   "version": "1.0.0",
   "clients": [
     {
-      "nit": "1028008009",
+      "nit": "DEMO_META",
       "puerto": 3001,
-      "nombre": "Cliente Demo",
-      "webhookUrl": "https://apipuntoventav1.nubep7.com",
-      "activo": true,
-      "createdAt": "2025-01-28T00:00:00.000Z"
+      "nombre": "Bot Demo Meta",
+      "provider": "meta",
+      "metaConfig": {
+        "jwtToken": "EAAxxxxxxx_TU_TOKEN_AQUI_xxxxxxx",
+        "numberId": "123456789012345",
+        "verifyToken": "mi_verify_token_secreto",
+        "version": "v21.0"
+      },
+      "webhookUrl": "https://tu-backend.com",
+      "activo": false,
+      "createdAt": "2026-01-28T00:00:00.000Z"
     },
     {
-      "nit": "TEST001",
-      "puerto": 3005,
-      "nombre": "bot_test",
-      "activo": true,
-      "createdAt": "2026-01-28T21:58:31.489Z",
-      "updatedAt": "2026-01-28T22:18:21.450Z"
+      "nit": "1028008009",
+      "puerto": 3002,
+      "nombre": "Cliente Demo",
+      "provider": "baileys",
+      "webhookUrl": "https://apipuntoventav1.nubep7.com",
+      "activo": false,
+      "createdAt": "2025-01-28T00:00:00.000Z"
     }
   ]
 }
