@@ -50,7 +50,8 @@ export class ApiServer {
       res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization');
 
       if (req.method === 'OPTIONS') {
-        return res.sendStatus(200);
+        res.sendStatus(200);
+        return;
       }
       next();
     });
@@ -127,11 +128,13 @@ export class ApiServer {
 
         // Validaciones
         if (!nit || !puerto || !nombre) {
-          return this.sendError(res, 'nit, puerto y nombre son requeridos', 400);
+          this.sendError(res, 'nit, puerto y nombre son requeridos', 400);
+          return;
         }
 
         if (typeof puerto !== 'number' || puerto < 1024 || puerto > 65535) {
-          return this.sendError(res, 'puerto debe ser un número entre 1024 y 65535', 400);
+          this.sendError(res, 'puerto debe ser un número entre 1024 y 65535', 400);
+          return;
         }
 
         const store = this.manager.getClientStore();
@@ -176,7 +179,8 @@ export class ApiServer {
       const bot = this.manager.getBotStatus(nit);
 
       if (!bot) {
-        return this.sendError(res, `Cliente ${nit} no encontrado`, 404);
+        this.sendError(res, `Cliente ${nit} no encontrado`, 404);
+        return;
       }
 
       const response: ClientStatusResponse = {
@@ -205,7 +209,8 @@ export class ApiServer {
         const store = this.manager.getClientStore();
 
         if (!store.exists(nit)) {
-          return this.sendError(res, `Cliente ${nit} no encontrado`, 404);
+          this.sendError(res, `Cliente ${nit} no encontrado`, 404);
+          return;
         }
 
         const updates: Partial<ClientConfig> = {};
@@ -243,7 +248,8 @@ export class ApiServer {
         const store = this.manager.getClientStore();
 
         if (!store.exists(nit)) {
-          return this.sendError(res, `Cliente ${nit} no encontrado`, 404);
+          this.sendError(res, `Cliente ${nit} no encontrado`, 404);
+          return;
         }
 
         // Detener el bot primero
@@ -333,7 +339,8 @@ export class ApiServer {
       const qrPath = this.manager.getQrPath(nit);
 
       if (!existsSync(qrPath)) {
-        return this.sendError(res, `QR no disponible para ${nit}. El bot puede estar autenticado o no iniciado.`, 404);
+        this.sendError(res, `QR no disponible para ${nit}. El bot puede estar autenticado o no iniciado.`, 404);
+        return;
       }
 
       // Enviar imagen
@@ -350,7 +357,8 @@ export class ApiServer {
       const qrPath = this.manager.getQrPath(nit);
 
       if (!existsSync(qrPath)) {
-        return res.status(404).send('QR no disponible');
+        res.status(404).send('QR no disponible');
+        return;
       }
 
       res.setHeader('Content-Type', 'image/png');

@@ -29,9 +29,6 @@
   "exclude": [
     "node_modules",
     "dist",
-    "bot-1",
-    "bot-2",
-    "BotsClientes",
     "**/*.test.ts",
     "**/*.spec.ts"
   ]

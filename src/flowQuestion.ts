@@ -35,6 +35,7 @@ export const flowQuestion = addKeyword<BotProvider, BotDatabase>(utils.setEvent(
 
 			const { option, action, message } = answer;
 			
+			if (option === respuesta) {
 				const data = {
 					respuesta : respuesta
 				}
