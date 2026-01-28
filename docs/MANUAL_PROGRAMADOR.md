@@ -1,72 +1,84 @@
 # Manual del Programador - Bot Manager Multi-Tenant
 
+**Version:** 2.0.0
+**Ultima actualizacion:** 2026-01-28
+
 ## Tabla de Contenidos
 
 1. [Introduccion](#introduccion)
 2. [Arquitectura](#arquitectura)
-3. [Instalacion](#instalacion)
-4. [Configuracion](#configuracion)
-5. [API Reference](#api-reference)
-6. [Solucion al Error ENOENT de QRs](#solucion-al-error-enoent-de-qrs)
-7. [Depuracion](#depuracion)
-8. [Escalabilidad](#escalabilidad)
-9. [Integracion con Backend PHP](#integracion-con-backend-php)
+3. [Providers Disponibles](#providers-disponibles)
+4. [Instalacion](#instalacion)
+5. [Configuracion](#configuracion)
+6. [API Reference](#api-reference)
+7. [WhatsApp Business API (Meta)](#whatsapp-business-api-meta)
+8. [Baileys Provider](#baileys-provider)
+9. [Depuracion](#depuracion)
+10. [Integracion con Backend PHP](#integracion-con-backend-php)
+11. [Escalabilidad](#escalabilidad)
+12. [Troubleshooting](#troubleshooting)
 
 ---
 
 ## Introduccion
 
-Bot Manager es una plataforma multi-tenant que permite gestionar multiples bots de WhatsApp desde un unico sistema centralizado. Elimina la necesidad de copiar carpetas manualmente para cada cliente.
+Bot Manager es una plataforma multi-tenant que permite gestionar multiples bots de WhatsApp desde un unico sistema centralizado.
 
 ### Caracteristicas Principales
 
-- **Orquestacion Centralizada**: Un solo Manager controla N instancias de bots
-- **API REST Completa**: Crear, iniciar, detener bots via HTTP
-- **Dashboard Web**: Interfaz visual para administracion
-- **QRs Centralizados**: Almacenamiento organizado por NIT en `storage/`
+- **Multi-Tenant**: Un Manager controla N instancias de bots
+- **Dual Provider**: Soporte para Baileys (no oficial) y Meta Cloud API (oficial)
+- **API REST Completa**: CRUD de clientes via HTTP
+- **Dashboard Web**: Interfaz visual de administracion
 - **Auto-restart**: Recuperacion automatica de bots caidos
-- **Logica Stateless**: Compatible con tu backend PHP existente
+- **Logica Stateless**: Compatible con backends externos (PHP, etc.)
+
+### Comparacion de Providers
+
+| Caracteristica | Baileys | Meta Cloud API |
+|---------------|---------|----------------|
+| Tipo | No oficial | Oficial |
+| Requiere QR | Si | No |
+| Funciona en VPS | Problematico (Error 405) | Si |
+| Costo | Gratis | Gratis hasta 1000 conv/mes |
+| Estabilidad | Media | Alta |
+| Grupos | Si | No |
+| Verificacion | No | Si (negocio) |
+
+**Recomendacion**: Usar **Meta Cloud API** para produccion en VPS.
 
 ---
 
 ## Arquitectura
 
 ```
-┌─────────────────────────────────────────────────────────────────┐
-│                        BOT MANAGER                               │
-│                     (Puerto 4000)                                │
-├─────────────────────────────────────────────────────────────────┤
-│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐          │
-│  │  API Server  │  │ ClientStore  │  │ BotManager   │          │
-│  │  (Express)   │  │   (JSON)     │  │ (Orquestador)│          │
-│  └──────────────┘  └──────────────┘  └──────────────┘          │
-│         │                  │                  │                  │
-│         │    ┌─────────────┴──────────────┐   │                  │
-│         │    │     config/clients.json    │   │                  │
-│         │    └────────────────────────────┘   │                  │
-│         │                                     │                  │
-│         │         fork() / spawn              │                  │
-└─────────┼─────────────────────────────────────┼──────────────────┘
+┌─────────────────────────────────────────────────────────────────────┐
+│                         BOT MANAGER (Puerto 4000)                    │
+├─────────────────────────────────────────────────────────────────────┤
+│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐              │
+│  │  API Server  │  │ ClientStore  │  │ BotManager   │              │
+│  │  (Express)   │  │ (clients.json)│  │ (Orquestador)│              │
+│  └──────────────┘  └──────────────┘  └──────────────┘              │
+│         │                                     │                      │
+│         │              fork()                 │                      │
+└─────────┼─────────────────────────────────────┼──────────────────────┘
           │                                     │
           ▼                                     ▼
-┌─────────────────┐  ┌─────────────────┐  ┌─────────────────┐
-│   BOT WORKER    │  │   BOT WORKER    │  │   BOT WORKER    │
-│   (Puerto 3001) │  │   (Puerto 3002) │  │   (Puerto 3003) │
-│   NIT: 123456   │  │   NIT: 789012   │  │   NIT: 345678   │
-├─────────────────┤  ├─────────────────┤  ├─────────────────┤
-│ - Baileys       │  │ - Baileys       │  │ - Baileys       │
-│ - Express       │  │ - Express       │  │ - Express       │
-│ - Queue         │  │ - Queue         │  │ - Queue         │
-└────────┬────────┘  └────────┬────────┘  └────────┬────────┘
-         │                    │                    │
-         ▼                    ▼                    ▼
-┌─────────────────────────────────────────────────────────────────┐
-│                     storage/                                     │
-├─────────────────┬─────────────────┬─────────────────────────────┤
-│  123456/        │  789012/        │  345678/                    │
-│  ├── qr.png     │  ├── qr.png     │  ├── qr.png                 │
-│  └── sessions/  │  └── sessions/  │  └── sessions/              │
-└─────────────────┴─────────────────┴─────────────────────────────┘
+┌─────────────────────┐          ┌─────────────────────┐
+│   WORKER BAILEYS    │          │    WORKER META      │
+│   (bot.js)          │          │    (bot-meta.js)    │
+│   Puerto: 3001      │          │    Puerto: 3002     │
+├─────────────────────┤          ├─────────────────────┤
+│ - BaileysProvider   │          │ - MetaProvider      │
+│ - Genera QR         │          │ - Webhook receiver  │
+│ - WebSocket local   │          │ - Cloud API         │
+└─────────┬───────────┘          └─────────┬───────────┘
+          │                                 │
+          ▼                                 ▼
+┌─────────────────────┐          ┌─────────────────────┐
+│   WhatsApp Web      │          │   Meta Cloud API    │
+│   (via WebSocket)   │          │   (HTTPS oficial)   │
+└─────────────────────┘          └─────────────────────┘
 ```
 
 ### Componentes
@@ -75,8 +87,43 @@ Bot Manager es una plataforma multi-tenant que permite gestionar multiples bots 
 |------------|---------|-----------------|
 | **BotManager** | `src/manager/BotManager.ts` | Orquesta workers, health checks |
 | **ApiServer** | `src/manager/ApiServer.ts` | API REST + Dashboard |
-| **ClientStore** | `src/manager/ClientStore.ts` | CRUD de clientes en JSON |
-| **BotWorker** | `src/worker/bot.ts` | Instancia individual de bot |
+| **ClientStore** | `src/manager/ClientStore.ts` | CRUD de clientes |
+| **BotWorker Baileys** | `src/worker/bot.ts` | Bot con Baileys |
+| **BotWorker Meta** | `src/worker/bot-meta.ts` | Bot con Meta API |
+| **Types** | `src/manager/types.ts` | Interfaces TypeScript |
+
+---
+
+## Providers Disponibles
+
+### 1. Meta Cloud API (Recomendado)
+
+Provider oficial de WhatsApp Business. No tiene problemas de bloqueo de IP.
+
+**Ventajas:**
+- Funciona en cualquier VPS
+- No requiere escanear QR
+- API oficial y estable
+- Soporte de Meta
+
+**Desventajas:**
+- Requiere verificacion de negocio
+- No soporta grupos
+- Templates obligatorios despues de 24h
+
+### 2. Baileys
+
+Provider no oficial que usa WhatsApp Web via WebSocket.
+
+**Ventajas:**
+- Gratis
+- Soporta grupos
+- Sin verificacion
+
+**Desventajas:**
+- Bloqueado en IPs de datacenter (Error 405)
+- Requiere escanear QR
+- Puede ser baneado
 
 ---
 
@@ -85,7 +132,8 @@ Bot Manager es una plataforma multi-tenant que permite gestionar multiples bots 
 ### Requisitos
 
 - Node.js >= 18
-- npm o yarn
+- npm >= 9
+- (Para Meta) Cuenta de Meta Developers
 
 ### Pasos
 
@@ -99,52 +147,70 @@ npm install
 # 3. Compilar TypeScript
 npm run build
 
-# 4. Crear configuracion inicial (opcional, se auto-crea)
-mkdir -p config storage
+# 4. Configurar clientes (ver seccion Configuracion)
+nano config/clients.json
 
 # 5. Iniciar el Manager
 npm start
 ```
 
-### Estructura de Carpetas Resultante
+### Estructura de Carpetas
 
 ```
 bot/
 ├── config/
-│   └── clients.json          # Configuracion de clientes
+│   └── clients.json              # Configuracion de clientes
 ├── dist/
-│   ├── manager/              # Manager compilado
-│   └── worker/               # Worker compilado
+│   ├── manager/                  # Manager compilado
+│   └── worker/
+│       ├── bot.js                # Worker Baileys
+│       └── bot-meta.js           # Worker Meta
+├── docs/
+│   ├── MANUAL_PROGRAMADOR.md     # Este documento
+│   └── WHATSAPP_BUSINESS_API_SETUP.md
 ├── public/
-│   └── index.html            # Dashboard
+│   └── index.html                # Dashboard
 ├── src/
-│   ├── manager/              # Codigo fuente Manager
-│   └── worker/               # Codigo fuente Worker
-├── storage/                  # QRs y sesiones por NIT
+│   ├── manager/
+│   │   ├── index.ts
+│   │   ├── BotManager.ts
+│   │   ├── ApiServer.ts
+│   │   ├── ClientStore.ts
+│   │   └── types.ts
+│   └── worker/
+│       ├── bot.ts                # Worker Baileys
+│       └── bot-meta.ts           # Worker Meta
+├── storage/                      # Datos por cliente
 │   └── {NIT}/
-│       ├── qr.png
-│       └── sessions/
+│       ├── qr.png                # QR (solo Baileys)
+│       └── sessions/             # Sesion
+├── .env.example
 ├── package.json
 ├── tsconfig.json
 ├── rollup.manager.config.js
-└── rollup.worker.config.js
+├── rollup.worker.config.js
+└── rollup.worker-meta.config.js
 ```
 
 ---
 
 ## Configuracion
 
-### Variables de Entorno
+### Variables de Entorno (.env)
 
-| Variable | Default | Descripcion |
-|----------|---------|-------------|
-| `MANAGER_PORT` | 4000 | Puerto del API Manager |
-| `STORAGE_PATH` | ./storage | Ruta base de almacenamiento |
-| `CLIENTS_CONFIG` | ./config/clients.json | Archivo de clientes |
-| `WORKER_SCRIPT` | ./dist/worker/bot.js | Script del worker |
-| `AUTO_START` | true | Iniciar bots al arrancar |
-| `HEALTH_CHECK_INTERVAL` | 30000 | Intervalo health check (ms) |
-| `MAX_RESTART_ATTEMPTS` | 3 | Max reintentos por bot |
+```env
+# Manager
+MANAGER_PORT=4000
+STORAGE_PATH=./storage
+CLIENTS_CONFIG=./config/clients.json
+AUTO_START=true
+
+# Meta (si usas provider meta)
+META_JWT_TOKEN=EAAxxxxxxxx
+META_NUMBER_ID=123456789012345
+META_VERIFY_TOKEN=mi_secreto
+META_VERSION=v21.0
+```
 
 ### Archivo clients.json
 
@@ -153,36 +219,63 @@ bot/
   "version": "1.0.0",
   "clients": [
     {
-      "nit": "1028008009",
+      "nit": "EMPRESA_META",
       "puerto": 3001,
-      "nombre": "Mi Empresa",
-      "webhookUrl": "https://api.miempresa.com",
-      "activo": true,
-      "createdAt": "2025-01-28T00:00:00.000Z"
+      "nombre": "Mi Empresa (Meta)",
+      "provider": "meta",
+      "metaConfig": {
+        "jwtToken": "EAAxxxxxxxxxxxxxxxx",
+        "numberId": "123456789012345",
+        "verifyToken": "mi_verify_token",
+        "version": "v21.0"
+      },
+      "webhookUrl": "https://mi-backend.com",
+      "activo": true
     },
     {
-      "nit": "9876543210",
+      "nit": "EMPRESA_BAILEYS",
       "puerto": 3002,
-      "nombre": "Otra Empresa",
-      "activo": true
+      "nombre": "Mi Empresa (Baileys)",
+      "provider": "baileys",
+      "webhookUrl": "https://mi-backend.com",
+      "activo": false
     }
   ]
 }
 ```
 
+### Campos de ClientConfig
+
+| Campo | Tipo | Requerido | Descripcion |
+|-------|------|-----------|-------------|
+| `nit` | string | Si | ID unico del cliente |
+| `puerto` | number | Si | Puerto del worker (3001-65535) |
+| `nombre` | string | Si | Nombre visible |
+| `provider` | "baileys" \| "meta" | Si | Tipo de provider |
+| `metaConfig` | object | Solo si provider=meta | Configuracion de Meta |
+| `webhookUrl` | string | No | URL de tu backend |
+| `activo` | boolean | Si | Si debe iniciar |
+
+### Campos de MetaConfig
+
+| Campo | Tipo | Requerido | Descripcion |
+|-------|------|-----------|-------------|
+| `jwtToken` | string | Si | Access Token de Meta |
+| `numberId` | string | Si | Phone Number ID |
+| `verifyToken` | string | Si | Token para webhook |
+| `version` | string | No | Version API (default: v21.0) |
+
 ---
 
 ## API Reference
 
-Base URL: `http://localhost:4000/api`
+**Base URL:** `http://localhost:4000/api`
 
-### Informacion del Manager
+### Manager
 
-```http
-GET /api/info
-```
+#### GET /api/info
+Informacion del manager.
 
-**Response:**
 ```json
 {
   "success": true,
@@ -191,194 +284,151 @@ GET /api/info
     "uptime": 3600,
     "totalClients": 5,
     "onlineClients": 3,
-    "offlineClients": 2,
-    "managerPort": 4000
+    "offlineClients": 2
   }
 }
 ```
 
-### Listar Clientes
+### Clientes
 
-```http
-GET /api/clients
-```
+#### GET /api/clients
+Lista todos los clientes con estado.
 
-**Response:**
+#### POST /api/clients
+Crear nuevo cliente.
+
 ```json
 {
-  "success": true,
-  "data": [
-    {
-      "nit": "1028008009",
-      "nombre": "Mi Empresa",
-      "puerto": 3001,
-      "status": "ONLINE",
-      "authenticated": true,
-      "hasQr": false,
-      "uptime": 1200
-    }
-  ]
-}
-```
-
-### Crear Cliente
-
-```http
-POST /api/clients
-Content-Type: application/json
-
-{
-  "nit": "1234567890",
+  "nit": "NUEVO_CLIENTE",
   "puerto": 3005,
-  "nombre": "Nueva Empresa",
-  "webhookUrl": "https://api.nueva.com",
+  "nombre": "Nuevo Cliente",
+  "provider": "meta",
+  "metaConfig": {
+    "jwtToken": "EAAxxxx",
+    "numberId": "123456",
+    "verifyToken": "secreto"
+  },
   "autoStart": true
 }
 ```
 
-### Obtener Estado de Cliente
+#### GET /api/clients/:nit
+Estado de un cliente.
 
-```http
-GET /api/clients/:nit
-```
+#### PUT /api/clients/:nit
+Actualizar cliente.
 
-### Actualizar Cliente
+#### DELETE /api/clients/:nit
+Eliminar cliente.
 
-```http
-PUT /api/clients/:nit
-Content-Type: application/json
+### Control de Bots
 
-{
-  "nombre": "Nuevo Nombre",
-  "webhookUrl": "https://nuevo.url.com"
-}
-```
+#### POST /api/clients/:nit/start
+Iniciar bot.
 
-### Eliminar Cliente
+#### POST /api/clients/:nit/stop
+Detener bot.
 
-```http
-DELETE /api/clients/:nit
-```
+#### POST /api/clients/:nit/restart
+Reiniciar bot.
 
-### Iniciar Bot
+#### GET /api/clients/:nit/qr
+Obtener QR (solo Baileys).
 
-```http
-POST /api/clients/:nit/start
-```
+#### GET /qrs/:nit
+Alias para obtener QR.
 
-### Detener Bot
+#### POST /api/clients/:nit/clear-session
+Limpiar sesion (forzar nuevo QR).
 
-```http
-POST /api/clients/:nit/stop
-```
+### Endpoints del Worker
 
-### Reiniciar Bot
+Cada worker expone en su puerto:
 
-```http
-POST /api/clients/:nit/restart
-```
-
-### Obtener QR
-
-```http
-GET /api/clients/:nit/qr
-```
-Retorna imagen PNG del QR.
-
-**Alias corto:**
-```http
-GET /qrs/:nit
-```
-
-### Limpiar Sesion (Forzar nuevo QR)
-
-```http
-POST /api/clients/:nit/clear-session
-```
+| Metodo | Endpoint | Descripcion |
+|--------|----------|-------------|
+| POST | `/v1/messages` | Enviar mensaje |
+| POST | `/v1/question` | Enviar pregunta interactiva |
+| GET | `/health` | Health check |
+| GET | `/status` | Estado detallado |
 
 ---
 
-## Solucion al Error ENOENT de QRs
+## WhatsApp Business API (Meta)
 
-### El Problema
+### Configuracion Paso a Paso
 
-El error `ENOENT: no such file or directory` ocurria porque:
+Ver documento completo: `docs/WHATSAPP_BUSINESS_API_SETUP.md`
 
-1. Baileys genera el QR con nombre basado en el parametro `name` del provider
-2. El QR se guardaba en el directorio de trabajo actual (cwd)
-3. Cuando se buscaba desde el Manager, las rutas no coincidian
+### Resumen Rapido
 
-### La Solucion Implementada
+1. Crear cuenta en [developers.facebook.com](https://developers.facebook.com)
+2. Crear App tipo "Business"
+3. Agregar producto "WhatsApp"
+4. Obtener credenciales:
+   - Phone Number ID
+   - Access Token (System User para produccion)
+5. Configurar webhook en tu dominio
 
-1. **Almacenamiento Centralizado**:
-   ```
-   storage/
-   └── {NIT}/
-       ├── qr.png           # QR estandarizado
-       └── sessions/        # Sesion de Baileys
-   ```
+### Precios (2025-2026)
 
-2. **Rutas Absolutas**: El Manager calcula rutas absolutas con `resolve()`:
-   ```typescript
-   getQrPath(nit: string): string {
-     return join(this.getClientStoragePath(nit), 'qr.png');
-   }
-   ```
+| Tipo | Precio | Ejemplo |
+|------|--------|---------|
+| Service (usuario inicia) | GRATIS | Soporte al cliente |
+| Marketing | ~$0.01-0.12/msg | Promociones |
+| Utility | ~$0.004-0.08/msg | Confirmaciones |
+| Authentication | ~$0.004-0.08/msg | OTPs |
 
-3. **Watcher de QRs**: El Worker detecta cuando Baileys genera un QR y lo copia a la ubicacion centralizada:
-   ```typescript
-   function setupQrWatcher(): void {
-     // Busca QRs generados por Baileys y los copia a BOT_QR_PATH
-     const checkQr = () => {
-       for (const qrName of possibleQrNames) {
-         if (existsSync(qrInCwd)) {
-           copyFileSync(qrInCwd, BOT_QR_PATH);
-         }
-       }
-     };
-     setInterval(checkQr, 2000);
-   }
-   ```
+**Tier gratuito:** 1000 conversaciones/mes iniciadas por usuarios.
 
-4. **Variables de Entorno**: Cada Worker recibe su ruta de QR:
-   ```typescript
-   const workerEnv = {
-     BOT_NIT: client.nit,
-     BOT_QR_PATH: this.getQrPath(client.nit),
-     BOT_SESSION_PATH: this.getSessionPath(client.nit)
-   };
-   ```
+---
 
-### Verificar la Solucion
+## Baileys Provider
 
-```bash
-# Ver QRs almacenados
-ls -la storage/*/qr.png
+### Problemas Conocidos
 
-# Ver sesiones
-ls -la storage/*/sessions/
+#### Error 405 Connection Failure
 
-# Obtener QR via API
-curl http://localhost:4000/qrs/1028008009 > qr.png
-```
+**Causa:** WhatsApp bloquea IPs de datacenters (AWS, DigitalOcean, etc.)
+
+**Soluciones:**
+1. **Usar Meta Cloud API** (recomendado)
+2. Usar proxy residencial
+3. Correr en maquina local con IP residencial
+
+#### QR No Se Genera
+
+**Causas posibles:**
+- Sesion existente (limpiar con `/clear-session`)
+- Error de red
+- Baileys desactualizado
+
+### Cuando Usar Baileys
+
+- Desarrollo local
+- Pruebas
+- Casos donde necesites grupos
+- IP residencial disponible
 
 ---
 
 ## Depuracion
 
-### Logs del Manager
+### Logs
 
-El Manager imprime logs prefijados:
-- `[BotManager]` - Operaciones del orquestador
-- `[API]` - Requests HTTP
-- `[Worker:NIT]` - Output del worker con NIT
+```bash
+# Manager logs
+[BotManager] Iniciando bot: Mi Bot (NIT: 123, Puerto: 3001)
+[BotManager] Provider: meta, Worker: ./dist/worker/bot-meta.js
 
-### Logs del Worker
+# Worker Baileys logs
+[Worker] Iniciando bot: Mi Bot
+[Worker] BAILEYS connection.update: {"qr": "..."}
 
-Cada Worker imprime:
-- `[Worker]` - Operaciones generales
-- Errores de Baileys
-- Mensajes enviados/recibidos
+# Worker Meta logs
+[Worker-Meta] Iniciando bot: Mi Bot
+[Worker-Meta] Provider: Meta Cloud API v21.0
+```
 
 ### Comandos Utiles
 
@@ -386,67 +436,28 @@ Cada Worker imprime:
 # Ver logs en tiempo real
 npm run dev
 
-# Verificar procesos de bots
-ps aux | grep "bot.js"
+# Verificar procesos
+ps aux | grep "bot"
 
-# Verificar puertos en uso
+# Verificar puertos
 netstat -tlnp | grep -E "300[0-9]|4000"
 
-# Probar endpoint de health
+# Probar health
 curl http://localhost:3001/health
 
-# Ver estado de todos los bots
+# Ver todos los clientes
 curl http://localhost:4000/api/clients | jq
 ```
-
-### Problemas Comunes
-
-| Problema | Causa | Solucion |
-|----------|-------|----------|
-| QR no aparece | Bot ya autenticado | Limpiar sesion con `/clear-session` |
-| Puerto en uso | Otro proceso | Cambiar puerto o matar proceso |
-| Worker no inicia | Script no compilado | Ejecutar `npm run build` |
-| Sesion invalida | Baileys corrupto | Eliminar `storage/{NIT}/sessions/` |
-
----
-
-## Escalabilidad
-
-### Horizontal (Multiples Servidores)
-
-Para escalar a multiples servidores:
-
-1. **Base de Datos Compartida**: Reemplazar `clients.json` por MySQL/PostgreSQL
-2. **Redis para Estado**: Compartir estado entre Managers
-3. **Load Balancer**: Nginx/HAProxy frente a los Managers
-4. **Storage Compartido**: NFS o S3 para QRs y sesiones
-
-### Vertical (Un Servidor)
-
-Recomendaciones para un solo servidor:
-
-| Bots | RAM | CPU |
-|------|-----|-----|
-| 1-5 | 2GB | 2 cores |
-| 6-20 | 4GB | 4 cores |
-| 21-50 | 8GB | 8 cores |
-
-### Limites de WhatsApp
-
-- **Rate Limit**: ~1 mensaje cada 3 segundos (ya implementado con queue)
-- **Sesiones**: Una sesion por numero de WhatsApp
-- **Bans**: Evitar mensajes masivos no solicitados
 
 ---
 
 ## Integracion con Backend PHP
 
-### Enviar Mensaje desde PHP
+### Enviar Mensaje
 
 ```php
 <?php
-$nit = '1028008009';
-$puerto = 3001;
+$puerto = 3001; // Puerto del worker
 
 $data = [
     'number' => '573001234567',
@@ -463,118 +474,114 @@ curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
 $response = curl_exec($ch);
 curl_close($ch);
 
-echo $response; // {"status": "queued", "nit": "1028008009"}
+// {"status": "queued", "nit": "..."}
 ```
 
-### Enviar Pregunta con Opciones
+### Enviar Pregunta Interactiva
 
 ```php
 <?php
 $data = [
     'number' => '573001234567',
     'message' => [
-        '¿Como desea pagar?',
-        '',
+        'Como desea pagar?',
         '1. Efectivo',
-        '2. Tarjeta',
-        '3. Transferencia'
+        '2. Tarjeta'
     ],
     'answers' => [
-        [
-            'option' => 1,
-            'action' => 'https://api.miempresa.com/webhook/pago-efectivo',
-            'message' => 'Perfecto, pago en efectivo.'
-        ],
-        [
-            'option' => 2,
-            'action' => 'https://api.miempresa.com/webhook/pago-tarjeta',
-            'message' => 'Procesando pago con tarjeta...'
-        ],
-        [
-            'option' => 3,
-            'action' => 'https://api.miempresa.com/webhook/pago-transferencia',
-            'message' => 'Aqui estan los datos de transferencia.'
-        ]
+        ['option' => 1, 'action' => 'https://api.com/efectivo', 'message' => 'Pago en efectivo'],
+        ['option' => 2, 'action' => 'https://api.com/tarjeta', 'message' => 'Pago con tarjeta']
     ]
 ];
 
 // POST a http://localhost:3001/v1/question
 ```
 
-### Webhook de Respuesta
-
-El bot hace POST al `action` con:
-
-```json
-{
-  "respuesta": 1
-}
-```
-
-Tu backend PHP recibe esto y procesa la logica de negocio.
-
-### Obtener QR para mostrar en POS
+### Verificar Estado
 
 ```php
 <?php
-$nit = '1028008009';
-
-// Opcion 1: Desde el Manager
-$qrUrl = "http://localhost:4000/qrs/{$nit}";
-
-// Opcion 2: Directamente del bot
-$puerto = 3001;
-$qrUrl = "http://localhost:{$puerto}/..."; // No disponible directamente
-
-// Mostrar en HTML
-echo "<img src='{$qrUrl}' alt='QR WhatsApp'>";
-```
-
-### Verificar Estado del Bot desde PHP
-
-```php
-<?php
-$nit = '1028008009';
+$nit = 'MI_EMPRESA';
 $response = file_get_contents("http://localhost:4000/api/clients/{$nit}");
 $data = json_decode($response, true);
 
 if ($data['success'] && $data['data']['status'] === 'ONLINE') {
     echo "Bot conectado!";
-} else {
-    echo "Bot desconectado - mostrar QR";
 }
 ```
 
 ---
 
-## Scripts Disponibles
+## Escalabilidad
+
+### Recursos por Bot
+
+| Bots | RAM | CPU |
+|------|-----|-----|
+| 1-5 | 2GB | 2 cores |
+| 6-20 | 4GB | 4 cores |
+| 21-50 | 8GB | 8 cores |
+
+### Limites
+
+- **Rate Limit**: 1 mensaje cada 3 segundos (implementado)
+- **Sesiones**: Una por numero de WhatsApp
+- **Meta API**: 80 mensajes/segundo por numero
+
+---
+
+## Troubleshooting
+
+| Problema | Causa | Solucion |
+|----------|-------|----------|
+| Error 405 (Baileys) | IP de datacenter | Usar Meta API |
+| QR no aparece | Sesion existente | POST /clear-session |
+| Worker no inicia | No compilado | npm run build |
+| Puerto en uso | Conflicto | Cambiar puerto |
+| Meta: Token invalido | Token expirado | Regenerar en Meta |
+| Meta: Webhook falla | URL incorrecta | Verificar HTTPS |
+
+---
+
+## Scripts NPM
 
 ```bash
 # Produccion
-npm start           # Iniciar Manager
-npm run manager     # Alias de start
+npm start                  # Iniciar manager
+npm run manager            # Alias
+
+# Workers individuales
+npm run worker             # Worker Baileys
+npm run worker:meta        # Worker Meta
 
 # Desarrollo
-npm run dev         # Manager con hot-reload
-npm run dev:worker  # Worker individual (para debug)
+npm run dev                # Manager con hot-reload
+npm run dev:worker         # Worker Baileys dev
+npm run dev:worker:meta    # Worker Meta dev
 
 # Build
-npm run build       # Compilar todo
-npm run build:manager
-npm run build:worker
+npm run build              # Todo
+npm run build:manager      # Solo manager
+npm run build:worker       # Solo worker Baileys
+npm run build:worker:meta  # Solo worker Meta
 
 # Otros
-npm run clean       # Limpiar dist/
-npm run lint        # Verificar codigo
+npm run clean              # Limpiar dist/
+npm run lint               # Verificar codigo
 ```
 
 ---
 
 ## Soporte
 
-Para reportar bugs o sugerir mejoras, documentar:
+Para reportar issues, incluir:
 
-1. Logs del Manager y Worker
-2. Contenido de `config/clients.json`
-3. Estado de `storage/` (sin datos sensibles)
+1. Tipo de provider (Baileys/Meta)
+2. Logs del Manager y Worker
+3. `config/clients.json` (sin tokens)
 4. Version de Node.js (`node -v`)
+5. Sistema operativo
+
+---
+
+*Documentacion generada: 2026-01-28*
