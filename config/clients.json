@@ -8,6 +8,14 @@
       "webhookUrl": "https://apipuntoventav1.nubep7.com",
       "activo": true,
       "createdAt": "2025-01-28T00:00:00.000Z"
+    },
+    {
+      "nit": "TEST001",
+      "puerto": 3005,
+      "nombre": "bot_test",
+      "activo": true,
+      "createdAt": "2026-01-28T21:58:31.489Z",
+      "updatedAt": "2026-01-28T22:18:21.450Z"
     }
   ]
 }

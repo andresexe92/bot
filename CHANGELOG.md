@@ -3,17 +3,15 @@
 ## [Unreleased] - 2026-01-28
 
 ### Fixed
-- **Worker Build Error**: Fixed a critical syntax error in `src/flowQuestion.ts` where an `if` statement was missing, causing the worker build to fail.
-- **API Server Type Errors**: Resolved TypeScript errors in `src/manager/ApiServer.ts` related to Express middleware return types. Standardized all handlers to return `void` instead of the response object, complying with stricter type definitions.
+- **Worker Crash**: Fixed `TypeError: res.json is not a function` in `bot.ts` by replacing it with `res.writeHead/res.end`. The worker now handles HTTP requests correctly.
+- **Bot Name**: Renamed test client from "Bot De Prueba" to "bot_test" to avoid potential whitespace issues with file paths.
 
-### Added
-- **Build Verification**: Verified successful build of both `manager` and `worker` processes.
-- **Startup Verification**: Confirmed Bot Manager starts correctly and serves the API at port 4000.
-
-### Cleaned
-- **Legacy Directories**: Deleted unused folders `bot-1`, `bot-2`, `BotsClientes`, and `pepita_sessions` to clean up the workspace.
-- **TypeScript Config**: Updated `tsconfig.json` to remove exclusions for the deleted legacy directories.
+### Known Issues
+- **QR Code Generation**: The bot starts and authenticates (waiting for scan), but the `qr.png` file is not generated in the storage directory. The `require_action` event from Baileys provider is not triggering as expected in this environment. 
+    - *Status*: Investigating.
+    - *Workaround*: None yet.
+    - *Time*: 2026-01-28 17:22:00
 
 ---
 *Author: Antigravity*
-*Time: 16:50:34*
+*Time: 17:22:00*

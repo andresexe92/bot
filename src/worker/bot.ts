@@ -254,7 +254,9 @@ async function main(): Promise<void> {
       }
     });
 
-    res.json({ status: 'queued', nit: BOT_NIT });
+    const response = { status: 'queued', nit: BOT_NIT };
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify(response));
   }));
 
   /**
@@ -264,7 +266,9 @@ async function main(): Promise<void> {
     const { number, message, answers } = req.body;
 
     if (!number || !message || !answers) {
-      return res.status(400).json({ error: 'number, message y answers son requeridos' });
+      res.writeHead(400, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: 'number, message y answers son requeridos' }));
+      return;
     }
 
     messageQueue.enqueue(async () => {
@@ -279,34 +283,40 @@ async function main(): Promise<void> {
       }
     });
 
-    res.json({ status: 'queued', nit: BOT_NIT });
+    const response = { status: 'queued', nit: BOT_NIT };
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify(response));
   }));
 
   /**
    * GET /health - Health check
    */
   adapterProvider.server.get('/health', (req, res) => {
-    res.json({
+    const response = {
       status: 'ok',
       nit: BOT_NIT,
       nombre: BOT_NOMBRE,
       puerto: BOT_PUERTO,
       timestamp: new Date().toISOString()
-    });
+    };
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify(response));
   });
 
   /**
    * GET /status - Estado detallado
    */
   adapterProvider.server.get('/status', (req, res) => {
-    res.json({
+    const response = {
       nit: BOT_NIT,
       nombre: BOT_NOMBRE,
       puerto: BOT_PUERTO,
       queueSize: messageQueue.size,
       uptime: process.uptime(),
       memory: process.memoryUsage()
-    });
+    };
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify(response));
   });
 
   // ============================================
@@ -322,6 +332,11 @@ async function main(): Promise<void> {
   adapterProvider.on('ready', () => {
     console.log('[Worker] Bot listo y autenticado');
     sendToManager('AUTHENTICATED');
+  });
+
+  adapterProvider.on('require_action', (payload) => {
+    console.log('[Worker] Evento require_action recibido');
+    sendToManager('REQUIRE_ACTION', { payload });
   });
 
   // ============================================
