@@ -1,0 +1,21 @@
+{
+    "number": "573122946723",
+    "urlMedia": "",
+    "message": [
+        "👋 Hola Andres, ¿Llegaste a tu cita?",
+        "1️⃣ Si, gracias por preguntar",
+        "2️⃣ No, me quede sin gasolina"
+    ],
+    "answers": [
+        {
+        "option": 1,
+        "action": "https://miapi.com/estado/1",
+        "message": "Muy bien, que te vaya bien"
+        },
+        {
+        "option": 2,
+        "action": "https://miapi.com/soporte",
+        "message": "Ahh XD ve a la bomba mas cercana"
+        }
+    ]
+}
