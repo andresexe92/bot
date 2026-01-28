@@ -15,8 +15,8 @@
 import { createBot, createFlow, createProvider, addKeyword, utils } from '@builderbot/bot';
 import { BaileysProvider } from '@builderbot/provider-baileys';
 import { MemoryDB } from '@builderbot/bot';
-import { copyFileSync, existsSync, mkdirSync, watch, readdirSync } from 'fs';
-import { join, dirname } from 'path';
+import { copyFileSync, existsSync, mkdirSync, writeFileSync, watch } from 'fs';
+import { join, dirname, resolve } from 'path';
 import Queue from 'queue-promise';
 
 // ============================================
@@ -26,9 +26,33 @@ import Queue from 'queue-promise';
 const BOT_NIT = process.env.BOT_NIT || 'default';
 const BOT_PUERTO = parseInt(process.env.BOT_PUERTO || '3001', 10);
 const BOT_NOMBRE = process.env.BOT_NOMBRE || 'Bot';
-const BOT_STORAGE_PATH = process.env.BOT_STORAGE_PATH || './storage/default';
-const BOT_SESSION_PATH = process.env.BOT_SESSION_PATH || './storage/default/sessions';
-const BOT_QR_PATH = process.env.BOT_QR_PATH || './storage/default/qr.png';
+const BOT_STORAGE_PATH = resolve(process.env.BOT_STORAGE_PATH || './storage/default');
+const BOT_SESSION_PATH = resolve(process.env.BOT_SESSION_PATH || './storage/default/sessions');
+const BOT_QR_PATH = resolve(process.env.BOT_QR_PATH || './storage/default/qr.png');
+
+// ============================================
+// CONFIGURACIÓN CRÍTICA: Cambiar CWD al storage
+// BaileysProvider genera archivos relativos al CWD
+// ============================================
+
+function ensureDirectories(): void {
+  const dirs = [BOT_STORAGE_PATH, BOT_SESSION_PATH, dirname(BOT_QR_PATH)];
+
+  for (const dir of dirs) {
+    if (!existsSync(dir)) {
+      mkdirSync(dir, { recursive: true });
+      console.log(`[Worker] Directorio creado: ${dir}`);
+    }
+  }
+}
+
+// Crear directorios primero
+ensureDirectories();
+
+// CRÍTICO: Cambiar al directorio de storage ANTES de cualquier operación de Baileys
+// Esto hace que Baileys genere el QR y sesiones en este directorio
+const originalCwd = process.cwd();
+process.chdir(BOT_STORAGE_PATH);
 
 console.log('='.repeat(50));
 console.log(`[Worker] Iniciando bot: ${BOT_NOMBRE}`);
@@ -36,6 +60,7 @@ console.log(`[Worker] NIT: ${BOT_NIT}`);
 console.log(`[Worker] Puerto: ${BOT_PUERTO}`);
 console.log(`[Worker] Storage: ${BOT_STORAGE_PATH}`);
 console.log(`[Worker] Sessions: ${BOT_SESSION_PATH}`);
+console.log(`[Worker] CWD cambiado a: ${process.cwd()}`);
 console.log('='.repeat(50));
 
 // ============================================
@@ -73,56 +98,32 @@ function sendToManager(type: string, data?: unknown): void {
 }
 
 /**
- * Asegura que los directorios existan
- */
-function ensureDirectories(): void {
-  const dirs = [BOT_STORAGE_PATH, BOT_SESSION_PATH, dirname(BOT_QR_PATH)];
-
-  for (const dir of dirs) {
-    if (!existsSync(dir)) {
-      mkdirSync(dir, { recursive: true });
-      console.log(`[Worker] Directorio creado: ${dir}`);
-    }
-  }
-}
-
-/**
- * Busca y copia el QR generado por Baileys a la ubicación centralizada
+ * Busca el QR generado por Baileys y lo copia/renombra a qr.png
  */
 function setupQrWatcher(): void {
-  // Baileys genera el QR en el directorio actual con nombre basado en el bot
+  // Nombres posibles que Baileys puede generar
   const possibleQrNames = [
     `${BOT_NOMBRE}.qr.png`,
     `${BOT_NIT}.qr.png`,
-    'bot.qr.png'
+    'bot.qr.png',
+    'Bot.qr.png'
   ];
 
-  // Verificar periódicamente si existe el QR
-  const checkQr = () => {
-    // Buscar en el directorio de trabajo actual
-    const currentDir = process.cwd();
-    const storageDir = BOT_STORAGE_PATH;
+  const checkAndCopyQr = (): boolean => {
+    const cwd = process.cwd();
 
     for (const qrName of possibleQrNames) {
-      // Verificar en directorio actual
-      const qrInCwd = join(currentDir, qrName);
-      if (existsSync(qrInCwd)) {
-        try {
-          copyFileSync(qrInCwd, BOT_QR_PATH);
-          console.log(`[Worker] QR copiado: ${qrInCwd} -> ${BOT_QR_PATH}`);
-          sendToManager('QR_GENERATED', { path: BOT_QR_PATH });
-          return true;
-        } catch (err) {
-          console.error(`[Worker] Error copiando QR:`, err);
-        }
-      }
+      const sourcePath = join(cwd, qrName);
 
-      // Verificar en storage
-      const qrInStorage = join(storageDir, qrName);
-      if (existsSync(qrInStorage) && qrInStorage !== BOT_QR_PATH) {
+      if (existsSync(sourcePath)) {
         try {
-          copyFileSync(qrInStorage, BOT_QR_PATH);
-          console.log(`[Worker] QR copiado: ${qrInStorage} -> ${BOT_QR_PATH}`);
+          // Si el QR generado no es el mismo que el destino, copiarlo
+          if (sourcePath !== BOT_QR_PATH) {
+            copyFileSync(sourcePath, BOT_QR_PATH);
+            console.log(`[Worker] QR copiado: ${sourcePath} -> ${BOT_QR_PATH}`);
+          } else {
+            console.log(`[Worker] QR encontrado en: ${sourcePath}`);
+          }
           sendToManager('QR_GENERATED', { path: BOT_QR_PATH });
           return true;
         } catch (err) {
@@ -134,15 +135,31 @@ function setupQrWatcher(): void {
     return false;
   };
 
-  // Revisar cada 2 segundos por nuevos QRs
-  const interval = setInterval(() => {
-    checkQr();
-  }, 2000);
+  // Revisar inmediatamente y luego cada 2 segundos
+  if (!checkAndCopyQr()) {
+    const interval = setInterval(() => {
+      if (checkAndCopyQr()) {
+        // Seguir verificando por si se regenera el QR
+      }
+    }, 2000);
 
-  // Detener después de 5 minutos (ya debería estar autenticado)
-  setTimeout(() => {
-    clearInterval(interval);
-  }, 300000);
+    // Detener después de 5 minutos
+    setTimeout(() => {
+      clearInterval(interval);
+    }, 300000);
+  }
+
+  // También usar watch para detectar cambios en el directorio
+  try {
+    watch(process.cwd(), (eventType, filename) => {
+      if (filename && filename.endsWith('.qr.png')) {
+        console.log(`[Worker] Detectado cambio en QR: ${filename}`);
+        setTimeout(checkAndCopyQr, 500);
+      }
+    });
+  } catch (err) {
+    console.log('[Worker] Watch no disponible, usando polling');
+  }
 }
 
 // ============================================
@@ -213,14 +230,17 @@ const flowQuestion = addKeyword(utils.setEvent('question'))
 // ============================================
 
 async function main(): Promise<void> {
-  ensureDirectories();
+  console.log('[Worker] Creando provider BaileysProvider...');
 
-  // Crear provider de Baileys con rutas personalizadas
+  // Crear provider de Baileys
+  // El QR se generará en el CWD actual (que es BOT_STORAGE_PATH)
   const adapterProvider = createProvider(BaileysProvider, {
     name: BOT_NOMBRE,
     experimentalStore: true,
     experimentalSyncMessage: 'Sincronizando mensajes...'
   });
+
+  console.log('[Worker] Provider creado, inicializando bot...');
 
   const adapterDB = new MemoryDB();
   const adapterFlow = createFlow([flowQuestion]);
@@ -230,6 +250,8 @@ async function main(): Promise<void> {
     provider: adapterProvider,
     database: adapterDB
   });
+
+  console.log('[Worker] Bot inicializado, configurando endpoints...');
 
   // ============================================
   // ENDPOINTS HTTP
@@ -242,7 +264,9 @@ async function main(): Promise<void> {
     const { number, message, urlMedia } = req.body;
 
     if (!number || !message) {
-      return res.status(400).json({ error: 'number y message son requeridos' });
+      res.writeHead(400, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: 'number y message son requeridos' }));
+      return;
     }
 
     messageQueue.enqueue(async () => {
@@ -254,9 +278,8 @@ async function main(): Promise<void> {
       }
     });
 
-    const response = { status: 'queued', nit: BOT_NIT };
     res.writeHead(200, { 'Content-Type': 'application/json' });
-    res.end(JSON.stringify(response));
+    res.end(JSON.stringify({ status: 'queued', nit: BOT_NIT }));
   }));
 
   /**
@@ -283,61 +306,74 @@ async function main(): Promise<void> {
       }
     });
 
-    const response = { status: 'queued', nit: BOT_NIT };
     res.writeHead(200, { 'Content-Type': 'application/json' });
-    res.end(JSON.stringify(response));
+    res.end(JSON.stringify({ status: 'queued', nit: BOT_NIT }));
   }));
 
   /**
    * GET /health - Health check
    */
   adapterProvider.server.get('/health', (req, res) => {
-    const response = {
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({
       status: 'ok',
       nit: BOT_NIT,
       nombre: BOT_NOMBRE,
       puerto: BOT_PUERTO,
+      cwd: process.cwd(),
       timestamp: new Date().toISOString()
-    };
-    res.writeHead(200, { 'Content-Type': 'application/json' });
-    res.end(JSON.stringify(response));
+    }));
   });
 
   /**
    * GET /status - Estado detallado
    */
   adapterProvider.server.get('/status', (req, res) => {
-    const response = {
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({
       nit: BOT_NIT,
       nombre: BOT_NOMBRE,
       puerto: BOT_PUERTO,
       queueSize: messageQueue.size,
       uptime: process.uptime(),
+      cwd: process.cwd(),
+      qrPath: BOT_QR_PATH,
+      qrExists: existsSync(BOT_QR_PATH),
       memory: process.memoryUsage()
-    };
-    res.writeHead(200, { 'Content-Type': 'application/json' });
-    res.end(JSON.stringify(response));
+    }));
   });
 
   // ============================================
   // EVENTOS DE BAILEYS
   // ============================================
 
-  // Escuchar eventos de autenticación
-  adapterProvider.on('auth_failure', (error) => {
+  // Evento cuando se necesita acción (QR)
+  adapterProvider.on('require_action', (payload: { title: string; instructions: string[] }) => {
+    console.log('[Worker] ====== REQUIRE_ACTION ======');
+    console.log('[Worker] Title:', payload?.title);
+    console.log('[Worker] Instructions:', payload?.instructions);
+    sendToManager('REQUIRE_ACTION', { payload });
+  });
+
+  // Evento de error de autenticación
+  adapterProvider.on('auth_failure', (error: unknown) => {
     console.error('[Worker] Error de autenticación:', error);
     sendToManager('ERROR', { message: 'auth_failure', error: String(error) });
   });
 
+  // Evento cuando el bot está listo
   adapterProvider.on('ready', () => {
+    console.log('[Worker] ====== BOT READY ======');
     console.log('[Worker] Bot listo y autenticado');
     sendToManager('AUTHENTICATED');
   });
 
-  adapterProvider.on('require_action', (payload) => {
-    console.log('[Worker] Evento require_action recibido');
-    sendToManager('REQUIRE_ACTION', { payload });
-  });
+  // Capturar TODOS los eventos del provider para debug
+  const originalEmit = adapterProvider.emit.bind(adapterProvider);
+  adapterProvider.emit = (event: string, ...args: unknown[]) => {
+    console.log(`[Worker] Evento emitido: ${event}`);
+    return originalEmit(event, ...args);
+  };
 
   // ============================================
   // INICIAR SERVIDOR
@@ -352,6 +388,7 @@ async function main(): Promise<void> {
   sendToManager('READY');
 
   console.log(`[Worker] Bot ${BOT_NOMBRE} escuchando en puerto ${BOT_PUERTO}`);
+  console.log(`[Worker] QR se generará en: ${join(process.cwd(), BOT_NOMBRE + '.qr.png')}`);
 }
 
 // ============================================
@@ -378,7 +415,10 @@ process.on('unhandledRejection', (reason) => {
   sendToManager('ERROR', { message: 'unhandledRejection', error: String(reason) });
 });
 
-// Ejecutar
+// ============================================
+// EJECUTAR
+// ============================================
+
 main().catch((error) => {
   console.error('[Worker] Error fatal:', error);
   sendToManager('ERROR', { message: 'fatal', error: error.message });
