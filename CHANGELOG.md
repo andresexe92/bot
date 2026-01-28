@@ -1,25 +1,67 @@
-# Changelogs
+# Changelog
 
 ## [Unreleased] - 2026-01-28
 
 ### Fixed
-- **Worker Crash**: Fixed `TypeError: res.json is not a function` in `bot.ts` by replacing it with `res.writeHead/res.end`. The worker now handles HTTP requests correctly.
-- **Bot Name**: Renamed test client from "Bot De Prueba" to "bot_test" to avoid potential whitespace issues with file paths.
-- **QR Code Generation**: Fixed QR not being generated in storage directory.
-  - **Root Cause**: BaileysProvider generates QR files relative to the Current Working Directory (CWD), not to a configured path.
-  - **Solution**: Worker now changes CWD to `BOT_STORAGE_PATH` BEFORE initializing BaileysProvider using `process.chdir()`.
-  - **Additional Changes**:
-    - Added debug logging for all emitted events
-    - Added `cwd` and `qrExists` fields to `/status` endpoint
-    - Improved QR watcher with filesystem watch in addition to polling
+
+#### Worker Crash
+- Fixed `TypeError: res.json is not a function` by replacing with `res.writeHead/res.end`
+- The worker now handles HTTP requests correctly with raw Node.js responses
+
+#### Bot Naming
+- Renamed test client from "Bot De Prueba" to "bot_test" to avoid whitespace issues
+
+#### QR Code Generation (Multiple Iterations)
+
+**Iteration 1 - CWD Change:**
+- **Problem**: BaileysProvider generates files relative to CWD, not configured paths
+- **Solution**: Worker changes CWD to `BOT_STORAGE_PATH` before initializing provider
+- **Result**: Partial fix - directories created correctly but QR still not emitting
+
+**Iteration 2 - Direct Baileys Socket Access:**
+- **Problem**: BaileysProvider wrapper doesn't always emit `require_action` event
+- **Root Cause**: The QR event comes from Baileys socket (`vendor.ev`), not the wrapper
+- **Solution**: Access `adapterProvider.vendor` directly and listen to `connection.update`
+
+```typescript
+// Wait for vendor (Baileys socket) to be available
+const vendor = adapterProvider.vendor;
+
+// Listen directly to Baileys events
+vendor.ev.on('connection.update', (update) => {
+  if (update.qr) {
+    // QR code received as string
+  }
+  if (update.connection === 'open') {
+    // Successfully connected
+  }
+});
+```
+
+### Added
+
+- `waitForVendor()` - Waits up to 30 seconds for Baileys socket
+- `cleanSession()` - Utility to force new QR by deleting existing session
+- `/status` endpoint now includes:
+  - `cwd` - Current working directory
+  - `qrExists` - Whether QR file exists
+  - `sessionPath` - Path to session directory
+  - `sessionExists` - Whether `creds.json` exists
 
 ### Technical Details
-The fix involves:
-1. Using `resolve()` for all paths to ensure absolute paths
-2. Calling `process.chdir(BOT_STORAGE_PATH)` before `createProvider()`
-3. Baileys will now generate `{BOT_NOMBRE}.qr.png` inside `storage/{NIT}/`
-4. QR watcher copies/renames to standardized `qr.png` path
+
+The Baileys `connection.update` event contains:
+- `qr`: String representation of QR code (when scan needed)
+- `connection`: `'open'` | `'close'` | `'connecting'`
+- `lastDisconnect`: Information about last disconnection
+
+### Known Issues / Troubleshooting
+
+If QR still doesn't appear:
+1. **Network**: Verify connectivity to `web.whatsapp.com`
+2. **Existing Session**: Use `POST /api/clients/{nit}/clear-session` or uncomment `cleanSession()` in code
+3. **Logs**: Look for `[Worker] BAILEYS connection.update:` messages
 
 ---
-*Author: Antigravity*
+*Authors: Claude, Gemini, Antigravity*
 *Updated: 2026-01-28*
