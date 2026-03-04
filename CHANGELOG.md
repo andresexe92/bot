@@ -173,5 +173,17 @@ npm install https-proxy-agent
 - [WhatsApp Business API](https://developers.facebook.com/docs/whatsapp/cloud-api)
 
 ---
+### Added Features - Meta Support (2026-01-28 23:30 UTC)
+- **Multi-Provider Architecture**: The Bot Manager now supports both `baileys` and `meta` providers.
+- **Meta Worker**: Created `src/worker/bot-meta.ts` specifically for WhatsApp Cloud API.
+- **Manager Logic**: `BotManager.spawnWorker` dynamically selects the worker script based on `client.provider`.
+- **API Update**: `POST /api/clients` now accepts `provider` and `metaConfig`.
+
+### Verification
+- **Test**: Created a test client `TEST_META_001` via API with `provider: 'meta'`.
+- **Result**: Manager successfully chose `bot-meta.js`, spawned the process, and the worker initialized the `MetaProvider`.
+- **Status**: Ready for production credentials (JWT, Number ID).
+
+---
 *Authors: Claude (Anthropic), Gemini (Google), Antigravity*
-*Last Updated: 2026-01-28 23:04:58 UTC*
+*Last Updated: 2026-01-28 23:30:00 UTC*

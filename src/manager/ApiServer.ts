@@ -144,6 +144,8 @@ export class ApiServer {
           nit: String(nit),
           puerto,
           nombre,
+          provider: (req.body.provider as any) || 'baileys',
+          metaConfig: req.body.metaConfig,
           webhookUrl,
           activo: true
         });

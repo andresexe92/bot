@@ -13,10 +13,9 @@
     "dev:manager": "tsx watch ./src/manager/index.ts",
     "dev:worker": "tsx ./src/worker/bot.ts",
     "dev:worker:meta": "tsx ./src/worker/bot-meta.ts",
-    "build": "npm run build:manager && npm run build:worker && npm run build:worker:meta",
+    "build": "npm run build:manager && npm run build:worker",
     "build:manager": "npx rollup -c rollup.manager.config.js",
     "build:worker": "npx rollup -c rollup.worker.config.js",
-    "build:worker:meta": "npx rollup -c rollup.worker-meta.config.js",
     "lint": "eslint . --no-ignore",
     "clean": "rm -rf dist"
   },

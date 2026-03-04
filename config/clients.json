@@ -7,13 +7,13 @@
       "nombre": "Bot Demo Meta",
       "provider": "meta",
       "metaConfig": {
-        "jwtToken": "EAAxxxxxxx_TU_TOKEN_AQUI_xxxxxxx",
-        "numberId": "123456789012345",
-        "verifyToken": "mi_verify_token_secreto",
-        "version": "v21.0"
+        "jwtToken": "EAA3x4JhS94IBQor5Eaic2KjOZAmMbDD6bf081KKOY04TAzL0VHabqvUZCrsT4VISVp9N51SwWxjpWvx09EZBrLDXRu2T7MEb2VGYOEoOWKB1393ycFNZCXz7GmH6F78lC91vnuZCYJirfar5xYlYOxwyVXAjagzkdXzLZCufPTCPB8rlwhFAagle7zZAosWeCnM60mCL3sHbafNFdZAZBSd6pX9VmRal62iryLOOy9RbqTVSFRZAO1tu6PJ27Ww4VJolfM9ZCnoida3rOK90GWhZCBI2DJCLoXGkZCAzkiLQZD",
+        "numberId": "1027141890473198",
+        "verifyToken": "pluma7_verify_token",
+        "version": "v22.0"
       },
       "webhookUrl": "https://tu-backend.com",
-      "activo": false,
+      "activo": true,
       "createdAt": "2026-01-28T00:00:00.000Z"
     },
     {
@@ -24,6 +24,21 @@
       "webhookUrl": "https://apipuntoventav1.nubep7.com",
       "activo": false,
       "createdAt": "2025-01-28T00:00:00.000Z"
+    },
+    {
+      "nit": "TEST_META_001",
+      "puerto": 3006,
+      "nombre": "Test Meta",
+      "provider": "meta",
+      "metaConfig": {
+        "jwtToken": "dummy_jwt",
+        "numberId": "dummy_id",
+        "verifyToken": "dummy_verify",
+        "version": "v21.0"
+      },
+      "activo": true,
+      "createdAt": "2026-01-28T23:33:28.399Z",
+      "updatedAt": "2026-01-28T23:33:28.402Z"
     }
   ]
 }
